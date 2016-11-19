@@ -1,0 +1,2 @@
+Data was collected from http://www.eia.gov/electricity/data/eia860/index.html on
+11/19/2016.
