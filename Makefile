@@ -1,4 +1,6 @@
 
+generation_data: rds/generation_data.rds
+	Rscript collect.generation_data.R
 
-base-data: rds/operating_records.rds
-	Rscript collect.data.R
+operating_records: rds/operating_records.rds
+	Rscript collect.operating_records.R
