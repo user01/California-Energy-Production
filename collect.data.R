@@ -37,7 +37,19 @@ read_epa_data <- function(path){
                              tz = "UTC",
                              lt = FALSE)
       ) %>%
-    select(-STATE, -OP_DATE, -OP_HOUR)
+    filter(STATE == "CA") %>%
+    select(FACILITY_NAME,
+      ORISPL_CODE,
+      UNIT_ID,
+      DATE,
+      `GLOAD (MW)`,
+      `SO2_MASS (lbs)`,
+      `SO2_RATE (lbs/mmBtu)`,
+      `NOX_RATE (lbs/mmBtu)`,
+      `NOX_MASS (lbs)`,
+      `CO2_MASS (tons)`,
+      `CO2_RATE (tons/mmBtu)`
+    )
 }
 
 
@@ -47,7 +59,7 @@ file_paths %>%
   reduce(rbind) %>%
   mutate(
       FACILITY_NAME = as.factor(FACILITY_NAME)
-    )->
+    ) ->
   data_results
 # data_results %>% glimpse
 
