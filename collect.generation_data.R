@@ -71,10 +71,10 @@ list.files("eia", recursive=TRUE, pattern=".xls") %>%
   str_subset(gen_regexp) %>%
   file.path("eia", .) %>%
   map(generator_data) %>%
-  reduce(rbind) ->
+  reduce(rbind) %>%
+  select(-UTILITY_ID) ->
   plant_data_generators
 
-# plant_data_generators %>% glimpse
 
 
 
@@ -131,7 +131,7 @@ plant_data <- function(path) {
       NAME_OF_WATER_SOURCE = as.factor(NAME_OF_WATER_SOURCE),
       SECTOR_NAME = as.factor(SECTOR_NAME)
     ) %>%
-    cbind(DATA_YEAR = file_year)
+    cbind(DATA_YEAR = as.integer(file_year))
 }
 
 
@@ -140,10 +140,14 @@ list.files("eia", recursive=TRUE, pattern=".xls") %>%
   str_subset(plant_regexp_wide) %>%
   file.path("eia", .) %>%
   map(plant_data) %>%
-  reduce(rbind) ->
+  reduce(rbind) %>%
+  select(-PLANT_NAME) ->
   plant_data_meta
 
-# plant_data_meta %>% glimpse
+
+df_operating %>% glimpse
+plant_data_generators %>% glimpse
+plant_data_meta %>% glimpse
 
 
 
