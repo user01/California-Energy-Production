@@ -1,5 +1,4 @@
 
-
 suppressPackageStartupMessages( {
   library(purrr)
   library(dplyr)
@@ -9,6 +8,7 @@ suppressPackageStartupMessages( {
   library(readxl)
   library(lubridate)
 })
+
 
 readRDS(file.path("rds", "operating_records.rds"))  %>%
   mutate(DATA_YEAR = as.integer(year(DATE))) ->
@@ -74,7 +74,7 @@ list.files("eia", recursive=TRUE, pattern=".xls") %>%
   reduce(rbind) ->
   plant_data_generators
 
-plant_data_generators %>% glimpse
+# plant_data_generators %>% glimpse
 
 
 
@@ -143,33 +143,14 @@ list.files("eia", recursive=TRUE, pattern=".xls") %>%
   reduce(rbind) ->
   plant_data_meta
 
-plant_data_meta %>% glimpse
-
-
-
-
+# plant_data_meta %>% glimpse
 
 
 
 df_operating %>%
-  inner_join(plant_data_generators, by=c("DATA_YEAR" = "DATA_YEAR", "ORISPL_CODE" = "PLANT_CODE")) ->
-  res
+  inner_join(plant_data_generators, by=c("DATA_YEAR" = "DATA_YEAR", "ORISPL_CODE" = "PLANT_CODE")) %>%
+  inner_join(plant_data_meta, by=c("DATA_YEAR" = "DATA_YEAR", "ORISPL_CODE" = "PLANT_CODE")) ->
+  generation_data
 
-res %>% glimpse
-res %>%
-  filter(!is.na(`CO2_MASS (tons)`)) %>%
-  glimpse
-
-dd %>%
-  filter(PLANT_CODE == 228) %>%
-  glimpse
-
-data.frame(a = 1:5, x = 9:13, y = "a") %>%
-  inner_join(data.frame(b = 0:9, xx = c(10:13,10:12,10:12), y=c("a","b")), by=c("x"="xx","y"))
-
-data.frame(a = 1:5, x = 9:13, y = "a") -> temp_df
-
-temp_df %>%
-  `names<-`(toupper(names(temp_df)))
-
-""
+# generation_data %>% glimpse
+data_results %>% saveRDS(file.path("rds", "generation_data.rds"))
