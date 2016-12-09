@@ -77,6 +77,61 @@ list.files("eia", recursive=TRUE, pattern=".xls") %>%
 
 
 
+str_detect_lgl <- function(str, pattern){
+  res <- str_detect(str, pattern)
+  if (is.na(res)) {
+    return(FALSE)
+  }
+  res
+}
+fix_water_source <- function(water_vec) {
+  water_vec %>%
+    tolower %>%
+    map_chr(function(src){
+      if (is.na(src)) {
+        return(NA)
+      }
+      if (str_detect_lgl(src,'^n/a$')) {
+        return(NA)
+      }
+      if (str_detect_lgl(src,'^na$')) {
+        return(NA)
+      }
+      if (str_detect_lgl(src,'unavailable')) {
+        return(NA)
+      }
+      if (str_detect_lgl(src,'^none$')) {
+        return(NA)
+      }
+
+      if (str_detect_lgl(src,'municipality')) {
+        return('city')
+      }
+      if (str_detect_lgl(src,'city')) {
+        return('city')
+      }
+      if (str_detect_lgl(src,'district')) {
+        return('city')
+      }
+      if (str_detect_lgl(src,'reclaim')) {
+        return('city')
+      }
+      if (str_detect_lgl(src,'waste')) {
+        return('city')
+      }
+
+      if (str_detect_lgl(src,'well')) {
+        return('well')
+      }
+      if (str_detect_lgl(src,'air')) {
+        return('air')
+      }
+
+      src
+    })
+}
+
+
 
 
 plant_regexp <- "Plant.+(201\\d)"
@@ -128,7 +183,7 @@ plant_data <- function(path) {
       PLANT_CODE = as.integer(PLANT_CODE),
       PLANT_NAME = as.factor(PLANT_NAME),
       ZIP = as.integer(ZIP),
-      NAME_OF_WATER_SOURCE = as.factor(NAME_OF_WATER_SOURCE),
+      NAME_OF_WATER_SOURCE = as.factor(fix_water_source(NAME_OF_WATER_SOURCE)),
       SECTOR_NAME = as.factor(SECTOR_NAME)
     ) %>%
     cbind(DATA_YEAR = as.integer(file_year))
@@ -145,11 +200,9 @@ list.files("eia", recursive=TRUE, pattern=".xls") %>%
   plant_data_meta
 
 
-df_operating %>% glimpse
-plant_data_generators %>% glimpse
-plant_data_meta %>% glimpse
-
-
+# df_operating %>% glimpse
+# plant_data_generators %>% glimpse
+# plant_data_meta %>% glimpse
 
 df_operating %>%
   inner_join(plant_data_generators, by=c("DATA_YEAR" = "DATA_YEAR", "PLANT_CODE" = "PLANT_CODE")) %>%
