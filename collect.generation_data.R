@@ -148,9 +148,9 @@ list.files("eia", recursive=TRUE, pattern=".xls") %>%
 
 
 df_operating %>%
-  inner_join(plant_data_generators, by=c("DATA_YEAR" = "DATA_YEAR", "ORISPL_CODE" = "PLANT_CODE")) %>%
-  inner_join(plant_data_meta, by=c("DATA_YEAR" = "DATA_YEAR", "ORISPL_CODE" = "PLANT_CODE")) ->
+  inner_join(plant_data_generators, by=c("DATA_YEAR" = "DATA_YEAR", "PLANT_CODE" = "PLANT_CODE")) %>%
+  inner_join(plant_data_meta, by=c("DATA_YEAR" = "DATA_YEAR", "PLANT_CODE" = "PLANT_CODE")) ->
   generation_data
 
 # generation_data %>% glimpse
-data_results %>% saveRDS(file.path("rds", "generation_data.rds"))
+generation_data %>% saveRDS(file.path("rds", "generation_data.rds"))

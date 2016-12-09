@@ -1,6 +1,9 @@
 
-generation_data: rds/generation_data.rds
+rds/generation_data.rds: rds/operating_records.rds
 	Rscript collect.generation_data.R
 
-operating_records: rds/operating_records.rds
+rds/operating_records.rds:
 	Rscript collect.operating_records.R
+
+clean:
+	rm rds/*.rds
