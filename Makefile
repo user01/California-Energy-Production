@@ -1,4 +1,7 @@
 
+rds/generator_data_daily.rds: rds/generation_data.rds
+	Rscript collect.weather_data.R
+
 rds/generation_data.rds: rds/operating_records.rds
 	Rscript collect.generation_data.R
 
