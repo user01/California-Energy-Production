@@ -266,7 +266,16 @@ plant_data_meta %>%
 
 df_operating %>%
   left_join(plant_data_generators, by=c("DATA_YEAR" = "DATA_YEAR", "PLANT_CODE" = "PLANT_CODE")) %>%
-  left_join(plant_data_meta_full, by=c("DATA_YEAR" = "DATA_YEAR", "PLANT_CODE" = "PLANT_CODE")) ->
+  left_join(plant_data_meta_full, by=c("DATA_YEAR" = "DATA_YEAR", "PLANT_CODE" = "PLANT_CODE")) %>%
+  # hard coded location setting for some plants
+  mutate( # Fix for the missing NRG Station A
+    LONGITUDE = ifelse(STREET_ADDRESS == "1201-A Illinois Street", -122.383241, LONGITUDE),
+    LATITUDE = ifelse(STREET_ADDRESS == "1201-A Illinois Street", 37.756230, LATITUDE)
+  ) %>%
+  mutate( # Fix for the missing Dynegy South
+    LONGITUDE = ifelse(STREET_ADDRESS == "990 Bay Boulevard", -117.092287, LONGITUDE),
+    LATITUDE = ifelse(STREET_ADDRESS == "990 Bay Boulevard", 32.611443, LATITUDE)
+  ) ->
   generation_data
 
 generation_data %>% saveRDS(file.path("rds", "generation_data.rds"))
