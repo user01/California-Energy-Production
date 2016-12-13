@@ -26,14 +26,14 @@ long_lat_to_decimal <- function(str) {
 "weather.stations.txt" %>%
   file.path("misc", .) %>%
   read_lines(skip = 41) %>%
-  discard(~ nchar(.) < 50) %>%
+  discard(~ nchar(trimws(.)) < 40) %>%
   discard(~ str_detect(., "ICAO  IATA  SYNOP")) %>%
   map(function(line) {
     data.frame(
       state = substr(line, 1, 2),
       ICAO = substr(line, 21, 24), # ICAO = 4-character international id
-      longitude = substr(line, 39, 45) %>% long_lat_to_decimal,
-      latitude = substr(line, 48, 54) %>% long_lat_to_decimal,
+      latitude = substr(line, 39, 45) %>% long_lat_to_decimal,
+      longitude = substr(line, 48, 54) %>% long_lat_to_decimal,
       station = substr(line, 4, 19) %>% trimws, # STATION = 16 character station long name
       elevation = substr(line, 56, 59) %>% trimws %>% as.integer, # ELEV = Station elevation (meters)
       METAR = identical('X', substr(line, 63, 63)), # M = METAR reporting station.   Also Z=obsolete? site
