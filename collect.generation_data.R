@@ -74,7 +74,7 @@ list.files("eia", recursive=TRUE, pattern=".xls") %>%
   reduce(rbind) %>%
   select(-UTILITY_ID) ->
   plant_data_generators
-
+# plant_data_generators %>% glimpse
 
 
 str_detect_lgl <- function(str, pattern){
@@ -133,6 +133,51 @@ fix_water_source <- function(water_vec) {
 
 
 
+fix_zip <- function(df) {
+  df_zip <- if ("ZIP5" %in% names(df)) {
+    df %>%
+    mutate(
+      ZIP = ZIP5
+      ) %>%
+      select(-ZIP5)
+  } else {
+    df
+  }
+  df_zip
+}
+
+fix_long_lat <- function(df) {
+  df_lon_lat <- if ("LATITUDE" %in% names(df)) {
+    df
+  } else {
+    df %>%
+      mutate(
+        LATITUDE = NA,
+        LONGITUDE = NA
+      )
+  }
+  df_lon_lat
+}
+
+fix_grid_voltage <- function(df) {
+  df_grid_voltage <- if ("GRID_VOLTAGE_(KV)" %in% names(df)) {
+    df
+  } else if ("GRIDVOLTAGE" %in% names(df)) {
+    df %>%
+      mutate(
+        `GRID_VOLTAGE_(KV)` = GRIDVOLTAGE
+      ) %>%
+      select(-GRIDVOLTAGE)
+  } else {
+    # print("Missing --- ")
+    # print(names(df))
+    df %>%
+      mutate(
+        `GRID_VOLTAGE_(KV)` = NA
+      )
+  }
+  df_grid_voltage
+}
 
 plant_regexp <- "Plant.+(201\\d)"
 plant_regexp_wide <- "Plant"
@@ -165,19 +210,12 @@ plant_data <- function(path) {
       df_names_to_upper
   }) -> df
 
-  df_zip <- if ("ZIP5" %in% names(df)) {
-    df %>%
-    mutate(
-      ZIP = ZIP5
-      ) %>%
-      select(-ZIP5)
-  } else {
-    df
-  }
-
-  df_zip %>%
+  df %>%
     filter(STATE == "CA") %>%
-    select(UTILITY_ID, PLANT_CODE, PLANT_NAME, STREET_ADDRESS, CITY, ZIP, NAME_OF_WATER_SOURCE, SECTOR_NAME) %>%
+    fix_zip %>%
+    fix_long_lat %>%
+    fix_grid_voltage %>%
+    select(UTILITY_ID, PLANT_CODE, PLANT_NAME, STREET_ADDRESS, CITY, ZIP, NAME_OF_WATER_SOURCE, SECTOR_NAME, LATITUDE, LONGITUDE, `GRID_VOLTAGE_(KV)`) %>%
     mutate(
       UTILITY_ID = as.integer(UTILITY_ID),
       PLANT_CODE = as.integer(PLANT_CODE),
@@ -204,10 +242,31 @@ list.files("eia", recursive=TRUE, pattern=".xls") %>%
 # plant_data_generators %>% glimpse
 # plant_data_meta %>% glimpse
 
+plant_data_meta %>%
+  filter(!is.na(LONGITUDE)) %>%
+  distinct(PLANT_CODE, .keep_all = TRUE) %>%
+  select(PLANT_CODE, LONGITUDE, LATITUDE) ->
+  plant_data_meta_locations
+
+plant_data_meta %>%
+  filter(!is.na(`GRID_VOLTAGE_(KV)`)) %>%
+  distinct(PLANT_CODE, .keep_all = TRUE) %>%
+  select(PLANT_CODE, `GRID_VOLTAGE_(KV)`) ->
+  plant_data_meta_voltage
+
+plant_data_meta %>%
+  select(-LONGITUDE, -LATITUDE, -`GRID_VOLTAGE_(KV)`) %>%
+  left_join(plant_data_meta_locations, by="PLANT_CODE") %>%
+  left_join(plant_data_meta_voltage, by="PLANT_CODE") %>%
+  mutate(
+      `GRID_VOLTAGE_(KV)` = as.numeric(`GRID_VOLTAGE_(KV)`)
+    ) ->
+  plant_data_meta_full
+
+
 df_operating %>%
-  inner_join(plant_data_generators, by=c("DATA_YEAR" = "DATA_YEAR", "PLANT_CODE" = "PLANT_CODE")) %>%
-  inner_join(plant_data_meta, by=c("DATA_YEAR" = "DATA_YEAR", "PLANT_CODE" = "PLANT_CODE")) ->
+  left_join(plant_data_generators, by=c("DATA_YEAR" = "DATA_YEAR", "PLANT_CODE" = "PLANT_CODE")) %>%
+  left_join(plant_data_meta_full, by=c("DATA_YEAR" = "DATA_YEAR", "PLANT_CODE" = "PLANT_CODE")) ->
   generation_data
 
-# generation_data %>% glimpse
 generation_data %>% saveRDS(file.path("rds", "generation_data.rds"))
