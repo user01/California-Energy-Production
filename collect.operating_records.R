@@ -42,6 +42,7 @@ read_epa_data <- function(path){
       ORISPL_CODE,
       UNIT_ID,
       DATE,
+      OP_TIME,
       `GLOAD (MW)`,
       `SO2_MASS (lbs)`,
       `SO2_RATE (lbs/mmBtu)`,
