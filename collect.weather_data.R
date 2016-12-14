@@ -145,10 +145,9 @@ station_data %>%
 generator_data_located %>%
   select(FACILITY_NAME, PLANT_CODE, DATE, OP_TIME, ENERGY_SOURCE, LONGITUDE, LATITUDE, `GRID_VOLTAGE_(KV)`, ICAO) %>%
   mutate(Date = as_date(DATE)) %>%
-  group_by(Date) %>%
+  group_by(Date, PLANT_CODE) %>%
   summarise(
     FACILITY_NAME = FACILITY_NAME %>% first,
-    PLANT_CODE = PLANT_CODE %>% first,
     ENERGY_SOURCE = ENERGY_SOURCE %>% first,
     LONGITUDE = LONGITUDE %>% first,
     LATITUDE = LATITUDE %>% first,
@@ -164,10 +163,20 @@ generator_data_located %>%
     TEMP_F_MIN = Min_TemperatureF,
     TEMP_F_MEAN = Mean_TemperatureF
   ) %>%
-  select(DATE, FACILITY_NAME, ENERGY_SOURCE, OP_TIME, GRIDVOLTAGE, LONGITUDE, LATITUDE, TEMP_F_MAX, TEMP_F_MIN, TEMP_F_MEAN) ->
+  ungroup() %>%
+  select(DATE, FACILITY_NAME, PLANT_CODE, ENERGY_SOURCE, OP_TIME, GRIDVOLTAGE, LONGITUDE, LATITUDE, TEMP_F_MAX, TEMP_F_MIN, TEMP_F_MEAN) ->
   generator_data_daily
 
 # generator_data_daily %>%
+#   glimpse
+#
+#
+# generator_data_daily %>%
+#   distinct(PLANT_CODE) %>%
+#   glimpse
+#
+# generator_data_daily %>%
+#   distinct(DATE) %>%
 #   glimpse
 
 generator_data_daily %>% saveRDS(file.path("rds", "generator_data_daily.rds"))

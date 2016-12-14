@@ -14,6 +14,8 @@ readRDS(file.path("rds", "operating_records.rds"))  %>%
   mutate(DATA_YEAR = as.integer(year(DATE))) ->
   df_operating
 
+df_operating %>% glimpse
+
 df_names_to_upper <- function(df) {
   df %>%
     names %>%
@@ -58,7 +60,7 @@ generator_data <- function(path) {
       UTILITY_NAME = as.factor(UTILITY_NAME),
       PLANT_CODE = as.integer(PLANT_CODE),
       PLANT_NAME = as.factor(PLANT_NAME),
-      ENERGY_SOURCE = as.factor(ENERGY_SOURCE_1),
+      ENERGY_SOURCE = ENERGY_SOURCE_1,
       OPERATING_YEAR = as.integer(OPERATING_YEAR),
       PLANNED_RETIREMENT_YEAR = as.integer(PLANNED_RETIREMENT_YEAR)
     ) %>%

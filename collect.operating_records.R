@@ -59,7 +59,6 @@ file_paths %>%
   map(read_epa_data) %>%
   reduce(rbind) %>%
   mutate(
-      FACILITY_NAME = as.factor(FACILITY_NAME),
       PLANT_CODE = ORISPL_CODE
     ) %>%
   select(-ORISPL_CODE) ->
