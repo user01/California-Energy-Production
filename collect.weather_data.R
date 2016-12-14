@@ -116,7 +116,23 @@ generator_data_located %>%
     try({
       getSummarizedWeather(id,
                            "2010-01-01",
-                           end_date="2015-12-31")
+                           end_date="2010-12-31") -> weather2010
+      getSummarizedWeather(id,
+                           "2011-01-01",
+                           end_date="2011-12-31") -> weather2011
+      getSummarizedWeather(id,
+                           "2012-01-01",
+                           end_date="2012-12-31") -> weather2012
+      getSummarizedWeather(id,
+                           "2013-01-01",
+                           end_date="2013-12-31") -> weather2013
+      getSummarizedWeather(id,
+                           "2014-01-01",
+                           end_date="2014-12-31") -> weather2014
+      getSummarizedWeather(id,
+                           "2015-01-01",
+                           end_date="2015-12-31") -> weather2015
+      rbind(weather2010, weather2011, weather2012, weather2013, weather2014, weather2015)
     }) -> weather_results
 
     write_csv(weather_results, cur_path)
