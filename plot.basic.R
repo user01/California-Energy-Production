@@ -109,9 +109,9 @@ all_states <- map_data("state")
 #plot all states with ggplot
 states <- subset(all_states, region %in% c( "california" ) )
 plot_state <- ggplot()
-plot_state <- p_state + geom_polygon( data=states, aes(x=long, y=lat, group = group),colour="white", fill="grey10" )
-plot_state <- p_state + geom_point( data=plants, aes(x=LONGITUDE, y=LATITUDE, size=`GRID_VOLTAGE_(KV)`, color=ENERGY_SOURCE)) + scale_size(name="Grid Voltage (KV)")
-ggsave(file.path("plots", "state.plants.png"), p_state)
+plot_state <- plot_state + geom_polygon( data=states, aes(x=long, y=lat, group = group),colour="white", fill="grey10" )
+plot_state <- plot_state + geom_point( data=plants, aes(x=LONGITUDE, y=LATITUDE, size=`GRID_VOLTAGE_(KV)`, color=ENERGY_SOURCE)) + scale_size(name="Grid Voltage (KV)")
+ggsave(file.path("plots", "state.plants.png"), plot_state)
 # p_state
 
 
@@ -153,8 +153,8 @@ generator_data_daily %>%
     contribution = OP_TIME * GRIDVOLTAGE
     ) %>%
   ungroup() %>%
-  # streamgraph(key="FACILITY_NAME", value="contribution", "date") %>%
-  streamgraph(key="FACILITY_NAME", value="contribution", "date", offset="expand") %>%
+  streamgraph(key="FACILITY_NAME", value="contribution", "date") %>%
+  # streamgraph(key="FACILITY_NAME", value="contribution", "date", offset="expand") %>%
   sg_axis_x(tick_interval=10, tick_units="month") %>%
   sg_legend(TRUE, "Ticker: ") -> plot_steamgraph
 
