@@ -12,7 +12,7 @@ suppressPackageStartupMessages( {
 generator_data_daily <- read_rds(file.path("rds", "generator_data_daily.rds"))
 generator_data_daily %>% glimpse
 
-
+# hidden markov chain
 generator_data_daily %>%
   filter(ENERGY_SOURCE == "NG") %>%
   group_by(PLANT_CODE, DATE) %>%
@@ -123,13 +123,13 @@ k_fold_prob <- function(data, current_formula, k = 10, resample = TRUE) {
 
   1:k %>%
     purrr::map(function(fold_number) {
-      temp.train <- data %>% filter(folds != fold_number)
-      temp.test <- data %>% filter(folds == fold_number)
+      temp_train <- data %>% filter(folds != fold_number)
+      temp_test <- data %>% filter(folds == fold_number)
 
       current_formula %>%
-        randomForest(data = temp.train, importance=TRUE, ntree=200) %>%
-        predict(temp.test) %>%
-        factor_scores(temp.test$ACTIVE, unique(data$ACTIVE)) # TODO: remove this hard coded factor
+        randomForest(data = temp_train, importance=TRUE, ntree=128) %>%
+        predict(temp_test) %>%
+        factor_scores(temp_test$ACTIVE, unique(data$ACTIVE)) # TODO: remove this hard coded factor
     }) %>%
     purrr::reduce(rbind) %>%
     dmap(sum)
@@ -192,8 +192,8 @@ set.seed(0451)
 k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG)
 set.seed(0451)
 k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG + OP_TIME_MA)
-set.seed(0451)
-k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG + OP_TIME_MA + OP_TIME_MA2)
+# set.seed(0451)
+# k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG + OP_TIME_MA + OP_TIME_MA2)
 
 
 k_fold_prob(costa, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + OP_TIME)
