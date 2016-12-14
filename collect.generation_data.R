@@ -265,6 +265,8 @@ plant_data_meta %>%
     ) ->
   plant_data_meta_full
 
+plant_data_generators %>% saveRDS(file.path("rds", "plant_data_generators.rds"))
+plant_data_meta_full %>% saveRDS(file.path("rds", "plant_data_meta.rds"))
 
 df_operating %>%
   left_join(plant_data_generators, by=c("DATA_YEAR" = "DATA_YEAR", "PLANT_CODE" = "PLANT_CODE")) %>%
