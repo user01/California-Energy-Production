@@ -1,4 +1,7 @@
 
+plots/state.plants.png: rds/generator_data_daily.rds
+	Rscript plot.basic.R
+
 rds/generator_data_daily.rds: rds/generation_data.rds rds/weather_stations.rds
 	Rscript collect.weather_data.R
 
@@ -17,3 +20,4 @@ misc/weather_stations.txt:
 
 clean:
 	rm rds/*.rds
+	rm plots/*.png
