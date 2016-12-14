@@ -19,9 +19,9 @@ generator_data_daily %>%
   mutate(ACTIVE = OP_TIME > 0.5) ->
   generators_clean
 
-generators_clean %>%
-  # select(DATE, PLANT_CODE, FACILITY_NAME, ACTIVE, GRIDVOLTAGE, TEMP_F_MAX, TEMP_F_MIN, TEMP_F_MEAN) %>%
-  glimpse
+# generators_clean %>%
+#   # select(DATE, PLANT_CODE, FACILITY_NAME, ACTIVE, GRIDVOLTAGE, TEMP_F_MAX, TEMP_F_MIN, TEMP_F_MEAN) %>%
+#   glimpse
 
 # generators_clean %>%
 #   get("ACTIVE", .) %>%
@@ -45,6 +45,47 @@ if_else_ <- function(.data, .truth, .lhs, .rhs) {
   } else {
     .rhs(.data)
   }
+}
+
+is_invalid <- function(.data) {
+  # This function is adapted from Stack Overflow at:
+  # http://stackoverflow.com/a/19655909/2601448
+  if (is.function(.data)) {
+    return(FALSE)
+  }
+
+  return(is.null(.data) ||
+         length(.data) == 0 ||
+         all(is.na(.data)) ||
+         all(.data == ""))
+}
+combo_internal <- function(.set, .map_fn) {
+  # For invalid choices (empty, or NaN, etc), return an empty list
+  if (is_invalid(.set)) {
+    return(list())
+  }
+
+  elements <- .set %>% (function(e) {
+    list(e, 1:length(e))
+  }) %>% transpose
+
+  seq(1, 2^length(.set)) %>% map(function(mask) {
+    elements %>% discard(function(pair) {
+      # if the pair index is masked (0), drop it. keep if slot is 1
+      pair %>% dplyr::nth(2) %>% -1 %>% (function(e) {
+        bitwShiftL(1, e)
+      }) %>%
+      bitwAnd(mask) %>%
+      `>`(0)
+    }) %>% .map_fn(function(e) {
+      dplyr::nth(e, 1)
+    })
+  }) %>% discard(function(e) {
+    length(e) < 1  # ignore empties (probably not useful)
+  })
+}
+combo_chr <- function(.set) {
+  combo_internal(.set, purrr::map_chr)
 }
 
 factor_scores <- function(predictions, truths, possible_results) {
@@ -129,6 +170,21 @@ costa_featured %>%
 
 # barplot(prop.table(table(costa_featured$ACTIVE)))
 
+generate_df_combos <- function(df) {
+  df %>%
+    select(-ACTIVE,-DATE,-LONGITUDE,-LATITUDE,-FACILITY_NAME,-OP_TIME,
+           -ENERGY_SOURCE,-PLANT_CODE) %>%
+    names ->
+    n
+  if (length(n) > 10) {
+    stop("Too many names")
+  }
+  n %>%
+    combo_chr
+}
+
+# costa_featured %>%
+#   generate_df_combos
 
 set.seed(0451)
 k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN)
@@ -136,6 +192,8 @@ set.seed(0451)
 k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG)
 set.seed(0451)
 k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG + OP_TIME_MA)
+set.seed(0451)
+k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG + OP_TIME_MA + OP_TIME_MA2)
 
 
 k_fold_prob(costa, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + OP_TIME)
