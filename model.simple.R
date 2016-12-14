@@ -47,8 +47,8 @@ if_else_ <- function(.data, .truth, .lhs, .rhs) {
   }
 }
 
-factor_scores <- function(predictions, truths) {
-  truths %>%
+factor_scores <- function(predictions, truths, possible_results) {
+  possible_results %>%
     unique %>%
     map(function(fct) {
       list(truths, predictions) %>%
@@ -88,13 +88,13 @@ k_fold_prob <- function(data, current_formula, k = 10, resample = TRUE) {
       current_formula %>%
         randomForest(data = temp.train, importance=TRUE, ntree=200) %>%
         predict(temp.test) %>%
-        factor_scores(temp.test$ACTIVE) # TODO: remove this hard coded factor
+        factor_scores(temp.test$ACTIVE, unique(data$ACTIVE)) # TODO: remove this hard coded factor
     }) %>%
     purrr::reduce(rbind) %>%
     dmap(sum)
 }
 
-res <- randomForest(ACTIVE ~ GRIDVOLTAGE + OP_TIME, data = costa, importance=TRUE, ntree=200)
+# res <- randomForest(ACTIVE ~ GRIDVOLTAGE + OP_TIME, data = costa, importance=TRUE, ntree=200)
 # varImpPlot(res)
 
 # Source: http://stackoverflow.com/a/39894310/2601448
@@ -107,11 +107,15 @@ getSeason <- function(input.date){
   return(cuts)
 }
 
+moving_avg <- function(x,n=5){
+  stats::filter(x,rep(1/n,n), sides=1)
+}
 
 costa %>%
   # head(50) %>%
   mutate(
     OP_TIME_LAG = lag(OP_TIME, 1),
+    OP_TIME_MA = moving_avg(OP_TIME),
     wday = as.factor(wday(DATE, label = TRUE)),
     wend = wday == "Sat" | wday == "Sun",
     season = getSeason(DATE)
@@ -123,19 +127,15 @@ costa_featured %>%
   glimpse
 
 
+# barplot(prop.table(table(costa_featured$ACTIVE)))
+
 
 set.seed(0451)
 k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN)
+set.seed(0451)
 k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG)
+set.seed(0451)
+k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG + OP_TIME_MA)
 
 
 k_fold_prob(costa, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + OP_TIME)
-
-
-folds <- cut(seq(1, nrow(costa)), breaks = 5, labels = FALSE) %>% if_else_(T,
-  sample, identity)
-
-folds %>% glimpse
-
-temp_train <- costa %>% ungroup() %>% filter(folds != 1)
-temp_test <- costa %>% filter(folds == 1)
