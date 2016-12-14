@@ -9,6 +9,7 @@ suppressPackageStartupMessages( {
   library(viridis)
   library(ggplot2)
   library(maps)
+  library(htmlwidgets)
 })
 
 
@@ -115,11 +116,11 @@ ggsave(file.path("plots", "state.plants.png"), p_state)
 
 
 
-operating_records <- read_rds(file.path("rds", "operating_records.rds"))
-operating_records %>% glimpse
-operating_records %>%
-  distinct(PLANT_CODE) %>%
-  glimpse
+# operating_records <- read_rds(file.path("rds", "operating_records.rds"))
+# operating_records %>% glimpse
+# operating_records %>%
+#   distinct(PLANT_CODE) %>%
+#   glimpse
 
 
 
@@ -134,9 +135,32 @@ operating_records %>%
 #   unlist() %>%
 #   unique() %>%
 #   glimpse
-#
-# generator_data_daily <- read_rds(file.path("rds", "generator_data_daily.rds"))
+
+generator_data_daily <- read_rds(file.path("rds", "generator_data_daily.rds"))
 # generator_data_daily %>% glimpse
+
+
+generator_data_daily %>%
+  filter(ENERGY_SOURCE == "NG") %>%
+  group_by(PLANT_CODE, DATE) %>%
+  summarise(
+    FACILITY_NAME = FACILITY_NAME %>% first,
+    OP_TIME = mean(OP_TIME, na.rm = T),
+    GRIDVOLTAGE = mean(GRIDVOLTAGE, na.rm = T)
+  ) %>%
+  mutate(
+    date=as.Date(DATE, format="%m/%d/%y"),
+    contribution = OP_TIME * GRIDVOLTAGE
+    ) %>%
+  ungroup() %>%
+  # streamgraph(key="FACILITY_NAME", value="contribution", "date") %>%
+  streamgraph(key="FACILITY_NAME", value="contribution", "date", offset="expand") %>%
+  sg_axis_x(tick_interval=10, tick_units="month") %>%
+  sg_legend(TRUE, "Ticker: ") -> plot_steamgraph
+
+htmlwidgets::saveWidget(plot_steamgraph, "all_steamgraph.html", selfcontained = TRUE)
+
+
 #
 # generator_data_daily %>%
 #   distinct(FACILITY_NAME, .keep_all = T) %>%
@@ -149,23 +173,3 @@ operating_records %>%
 #   glimpse
 #
 #
-#
-# stocks_url <- "http://infographics.economist.com/2015/tech_stocks/data/stocks.csv"
-# stocks <- read.csv(stocks_url, stringsAsFactors=FALSE)
-#
-# stock_colors <- viridis_pal()(100)
-#
-# stock_colors %>%
-#   glimpse
-#
-# stocks %>%
-#   glimpse
-#
-# stocks %>%
-#   mutate(date=as.Date(quarter, format="%m/%d/%y")) %>%
-#   streamgraph(key="ticker", value="nominal", offset="expand") %>%
-#   sg_fill_manual(stock_colors) %>%
-#   sg_axis_x(tick_interval=10, tick_units="year") %>%
-#   sg_legend(TRUE, "Ticker: ") -> p
-#
-# htmlwidgets::saveWidget(p, "temp.html", selfcontained = TRUE)
