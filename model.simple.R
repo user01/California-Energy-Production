@@ -173,7 +173,7 @@ costa_featured %>%
 generate_df_combos <- function(df) {
   df %>%
     select(-ACTIVE,-DATE,-LONGITUDE,-LATITUDE,-FACILITY_NAME,-OP_TIME,
-           -ENERGY_SOURCE,-PLANT_CODE) %>%
+           -ENERGY_SOURCE,-PLANT_CODE,-GRIDVOLTAGE,-TEMP_F_MIN,-TEMP_F_MAX) %>%
     names ->
     n
   if (length(n) > 10) {
@@ -183,8 +183,8 @@ generate_df_combos <- function(df) {
     combo_chr
 }
 
-# costa_featured %>%
-#   generate_df_combos
+costa_featured %>%
+  generate_df_combos
 
 set.seed(0451)
 k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN)
@@ -196,4 +196,34 @@ k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + s
 # k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG + OP_TIME_MA + OP_TIME_MA2)
 
 
-k_fold_prob(costa, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + OP_TIME)
+
+full_test <- function(df) {
+
+  df %>%
+    generate_df_combos %>%
+    map(function(combo) {
+      combo %>%
+        paste(collapse = " + ") %>%
+        c("ACTIVE", .) %>%
+        paste(collapse = " ~ ") ->
+        forml
+
+      k_fold_prob(df, as.formula(forml)) %>%
+        data.frame(Formula = forml, .)
+    }) %>%
+    reduce(rbind) %>%
+    mutate(
+      AccuracyINACTIVE = (FALSE_correct / FALSE_total),
+      AccuracyACTIVE = (TRUE_correct / TRUE_total),
+      BalancedErrorRate = ((FALSE_wrong / FALSE_total) +
+      (TRUE_wrong / TRUE_total)) *
+      (1 / 2)) %>%
+    select(Formula, AccuracyINACTIVE, AccuracyACTIVE, BalancedErrorRate) %>%
+    arrange(BalancedErrorRate) %>%
+    head(3)
+}
+
+full_test(costa_featured) -> costa_results
+
+costa_results %>%
+  arrange(BalancedErrorRate)
