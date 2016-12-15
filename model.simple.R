@@ -422,6 +422,96 @@ res_winners %>%
   head(5) %>%
   write_csv('temp.winners.csv')
 
+res_winners %>%
+  select(AccuracyACTIVE, AccuracyINACTIVE, BalancedErrorRate) %>%
+  summarise(
+    AccuracyACTIVE = mean(AccuracyACTIVE),
+    AccuracyINACTIVE = mean(AccuracyINACTIVE),
+    BalancedErrorRate = mean(BalancedErrorRate)
+  )
 
+res_winners$PLANT_CODE %>% unlist -> valid_plants
+
+valid_plants %>%
+  map(function(plant_code){
+    res_winners %>%
+      filter(PLANT_CODE == plant_code) %>%
+      get("Formula", .) %>%
+      first %>%
+      as.character %>%
+      as.formula ->
+      forml
+
+    generators_neighbor %>%
+      filter(PLANT_CODE == plant_code) %>%
+      mutate(
+        OP_TIME_LAG = lag(OP_TIME, 1),
+        OP_TIME_MA = moving_avg(OP_TIME)
+      ) %>%
+      na.omit() ->
+      raw_data
+    fit <- randomForest(forml, data = raw_data, importance=TRUE, ntree=64)
+
+    predict(fit, raw_data) -> forecasts
+
+    raw_data %>%
+      mutate(
+        ACTIVE_FORECAST = forecasts,
+        production = ifelse(ACTIVE_FORECAST == 'TRUE', OP_TIME * GRIDVOLTAGE, 0),
+        group="Forecast"
+      ) %>%
+      select(DATE, production, group)
+  }) %>%
+  reduce(rbind) %>%
+  group_by(DATE) %>%
+  summarise(
+    production = sum(production)
+  ) %>%
+  select(DATE, production) %>%
+  mutate(group="Forecast") %>%
+  ungroup() ->
+  dat_forecast
+
+
+dat_forecast %>%
+  arrange(DATE) %>%
+  tail(5) %>%
+  glimpse
+
+
+generators_clean %>% glimpse
+
+generators_clean %>%
+  filter(PLANT_CODE %in% valid_plants) %>%
+  select(DATE, ACTIVE, GRIDVOLTAGE, OP_TIME) %>%
+  mutate(production = ifelse(ACTIVE == 'TRUE', OP_TIME * GRIDVOLTAGE, 0)) %>%
+  group_by(DATE) %>%
+  summarise(
+    # production_truth = GRIDVOLTAGE * OP_TIME
+    production = sum(production)
+    # production_truth = sum(ifelse(ACTIVE, GRIDVOLTAGE * OP_TIME, 0))
+  ) %>%
+  select(DATE, production) %>%
+  mutate(group="Truth") %>%
+  ungroup() ->
+  dat
+
+dat %>% glimpse
+
+dat_full <- rbind(dat,dat_forecast)
+
+dat_full %>% glimpse
+
+ggplot(data=dat_full, aes(x=DATE, y=production, group=group, color=group)) +
+    geom_line(alpha=0.8) +
+    # scale_alpha_manual(values = c(0.1, 0.1, 1, 1)) +
+    # geom_point() +
+    expand_limits(y=0) +
+    xlab("Time") + ylab("Energy Produced (MW)") +
+    ggtitle("Dispatch Stack")
+    # coord_fixed(ratio=0.07) ->
+
+
+ggsave('true.stack.png', p)
 
 ""
