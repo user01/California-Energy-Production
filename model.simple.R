@@ -268,17 +268,21 @@ full_test <- function(df) {
         paste(collapse = " ~ ") ->
         forml
 
-      k_fold_prob(df, as.formula(forml)) %>%
+      k_fold_prob(df, as.formula(forml), 5) %>%
         data.frame(Formula = forml, .)
     }) %>%
     reduce(rbind) %>%
     mutate(
+      TPR = (TRUE_correct / TRUE_total),
+      FPR = (TRUE_wrong / TRUE_total),
+      TNR = (FALSE_correct / FALSE_total),
+      FNR = (FALSE_wrong / FALSE_total),
       AccuracyINACTIVE = (FALSE_correct / FALSE_total),
       AccuracyACTIVE = (TRUE_correct / TRUE_total),
       BalancedErrorRate = ((FALSE_wrong / FALSE_total) +
       (TRUE_wrong / TRUE_total)) *
       (1 / 2)) %>%
-    select(Formula, AccuracyINACTIVE, AccuracyACTIVE, BalancedErrorRate) %>%
+    select(Formula, TPR, FPR, TNR, FNR, AccuracyINACTIVE, AccuracyACTIVE, BalancedErrorRate) %>%
     arrange(BalancedErrorRate) %>%
     head(3)
 }
@@ -298,49 +302,77 @@ full_test <- function(df) {
 #   partition(PLANT_CODE) %>%
 #   do(fit = fitdist(.$PLANT_CODE)))
 
+registerDoParallel(cores = detectCores() - 1)
 
-system.time({
+process_plant <- function(plant_code) {
+  generators_neighbor %>%
+    filter(PLANT_CODE == plant_code) %>%
+    mutate(
+      OP_TIME_LAG = lag(OP_TIME, 1),
+      OP_TIME_MA = moving_avg(OP_TIME)
+    ) %>%
+    na.omit() ->
+    df
 
-  generators_clean %>%
-    distinct(PLANT_CODE) %>%
-    # slice(2:3) %>%
+  df %>%
+    get("ACTIVE", .) %>%
     unlist %>%
-    unname %>%
-    map(function(plant_code) {
-      generators_clean %>%
-        filter(PLANT_CODE == plant_code) %>%
-        mutate(
-          OP_TIME_LAG = lag(OP_TIME, 1),
-          OP_TIME_MA = moving_avg(OP_TIME)
-        ) %>%
-        na.omit() ->
-        df
+    unique %>%
+    length ->
+    active_levels
+  if (active_levels < 2) {
+    return(data_frame(PLANT_CODE = plant_code,
+                      FACILITY_NAME = df$FACILITY_NAME %>% first,
+                      Formula = "ACTIVE ~ NO + CHANGES",
+                      TPR = 0,
+                      FPR = 0,
+                      TNR = 0,
+                      FNR = 0,
+                      AccuracyINACTIVE = 0,
+                      AccuracyACTIVE = 0,
+                      BalancedErrorRate = 0))
+  }
+  full_test(df) %>%
+    cbind(data_frame(PLANT_CODE = plant_code,
+      FACILITY_NAME = df$FACILITY_NAME %>% first), .)
+}
+#
+# system.time({
+#
+#   generators_neighbor %>%
+#     distinct(PLANT_CODE) %>%
+#     slice(1:10) %>%
+#     unlist %>%
+#     unname -> plant_codes
+#
+#   (foreach(i = 1:length(plant_codes) ) %dopar% {
+#     plant_code <- plant_codes[[i]]
+#     process_plant(plant_code)
+#   }) %>%
+#   reduce(rbind) -> res
+#
+# })
 
-      df %>%
-        get("ACTIVE", .) %>%
-        unlist %>%
-        unique %>%
-        length ->
-        active_levels
-      if (active_levels < 2) {
-        return(data_frame(PLANT_CODE = plant_code,
-                          FACILITY_NAME = df$FACILITY_NAME %>% first,
-                          Formula = "ACTIVE ~ NO + CHANGES",
-                          AccuracyINACTIVE = 0,
-                          AccuracyACTIVE = 0,
-                          BalancedErrorRate = 0))
-      }
-      full_test(df) %>%
-        cbind(data_frame(PLANT_CODE = plant_code,
-          FACILITY_NAME = df$FACILITY_NAME %>% first), .)
-    }) %>%
-    reduce(rbind) -> res
+generators_clean %>%
+  distinct(PLANT_CODE) %>%
+  slice(2:3) %>%
+  unlist %>%
+  unname -> plant_codes
 
-})
 
+(foreach(i = 1:length(plant_codes) ) %dopar% {
+  plant_code <- plant_codes[[i]]
+  set.seed(i + 500)
+  process_plant(plant_code)
+  }) %>%
+  reduce(rbind) -> res2
+
+
+res2 %>%
+  glimpse
 
 # res
-res %>%
-  glimpse
+# res %>%
+#   glimpse
 
 ""
