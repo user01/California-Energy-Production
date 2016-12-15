@@ -10,6 +10,7 @@ suppressPackageStartupMessages( {
   require(doParallel)
   library(randomForest)
   library(geosphere)
+  library(ggplot2)
 })
 
 generator_data_daily <- read_rds(file.path("rds", "generator_data_daily.rds"))
@@ -409,8 +410,18 @@ list(res_1_20, res_21_80, res_41_60, res_61_80, res_81_100, res_101_112) %>%
 
 res_all %>% write_csv('temp.results.csv')
 
-# res
-# res %>%
-#   glimpse
+res_all %>%
+  arrange(BalancedErrorRate) %>%
+  distinct(PLANT_CODE, .keep_all=T) ->
+  res_winners
+
+res_winners %>% glimpse
+res_winners %>%
+  arrange(BalancedErrorRate) %>%
+  select(FACILITY_NAME, Formula, AccuracyACTIVE, AccuracyINACTIVE, BalancedErrorRate) %>%
+  head(5) %>%
+  write_csv('temp.winners.csv')
+
+
 
 ""
