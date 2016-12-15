@@ -303,7 +303,7 @@ system.time({
 
   generators_clean %>%
     distinct(PLANT_CODE) %>%
-    slice(1:3) %>%
+    # slice(2:3) %>%
     unlist %>%
     unname %>%
     map(function(plant_code) {
@@ -315,19 +315,31 @@ system.time({
         ) %>%
         na.omit() ->
         df
-      try({
-        full_test(df) %>%
-          cbind(data_frame(PLANT_CODE = plant_code,
-            FACILITY_NAME = df$FACILITY_NAME %>% first), .)
-      })
+
+      df %>%
+        get("ACTIVE", .) %>%
+        unlist %>%
+        unique %>%
+        length ->
+        active_levels
+      if (active_levels < 2) {
+        return(data_frame(PLANT_CODE = plant_code,
+                          FACILITY_NAME = df$FACILITY_NAME %>% first,
+                          Formula = "ACTIVE ~ NO + CHANGES",
+                          AccuracyINACTIVE = 0,
+                          AccuracyACTIVE = 0,
+                          BalancedErrorRate = 0))
+      }
+      full_test(df) %>%
+        cbind(data_frame(PLANT_CODE = plant_code,
+          FACILITY_NAME = df$FACILITY_NAME %>% first), .)
     }) %>%
     reduce(rbind) -> res
 
 })
 
-res
 
-
+# res
 res %>%
   glimpse
 
