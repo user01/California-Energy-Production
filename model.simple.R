@@ -498,20 +498,78 @@ generators_clean %>%
 
 dat %>% glimpse
 
+dat_forecast %>%
+  left_join(dat, by="DATE") %>%
+  mutate(residual = (production.x - production.y)^2 ) ->
+  dat_residuals
+
+dat_residuals %>% glimpse
+
+dat_residuals %>%
+  filter(residual < 1) %>%
+  glimpse
+
+652/1457
+
+qplot(dat_residuals$residual, geom="histogram") + coord_equal(ratio = 200) -> plot_residuals_hist
+ggsave('residuals.hist.png', plot_residuals_hist)
+
+
+ggplot(data=dat_residuals, aes(x=DATE, y=residual)) +
+    geom_point() +
+    xlab("Time") + ylab("Residual Energy Produced (MW)") +
+    coord_equal(ratio = 0.001) ->
+    p_residuals
+
+ggsave('stack.residuals.png', p_residuals)
+
 dat_full <- rbind(dat,dat_forecast)
 
 dat_full %>% glimpse
 
 ggplot(data=dat_full, aes(x=DATE, y=production, group=group, color=group)) +
-    geom_line(alpha=0.8) +
+    geom_line(alpha=0.95) +
     # scale_alpha_manual(values = c(0.1, 0.1, 1, 1)) +
     # geom_point() +
     expand_limits(y=0) +
     xlab("Time") + ylab("Energy Produced (MW)") +
-    ggtitle("Dispatch Stack")
-    # coord_fixed(ratio=0.07) ->
+    ggtitle("Dispatch Stack") + coord_equal(ratio = 0.1) ->
+    p_full_stack
+
+ggsave('full.stack.png', p_full_stack)
 
 
-ggsave('true.stack.png', p)
+ggplot(data=dat_full %>% filter(group == "Forecast"), aes(x=DATE, y=production, group=group, color=group)) +
+    geom_line(alpha=0.95, color="red") +
+    # scale_alpha_manual(values = c(0.1, 0.1, 1, 1)) +
+    # geom_point() +
+    expand_limits(y=0) +
+    xlab("Time") + ylab("Energy Produced (MW)") +
+    ggtitle("Dispatch Stack") + coord_equal(ratio = 0.1) ->
+    p_full_forecast
+
+ggplot(data=dat_full %>% filter(group == "Truth" & DATE < "2014-01-01"), aes(x=DATE, y=production, group=group)) +
+    geom_line(alpha=0.95, color="blue") +
+    # scale_alpha_manual(values = c(0.1, 0.1, 1, 1)) +
+    # geom_point() +
+    expand_limits(y=0) +
+    xlab("Time") + ylab("Energy Produced (MW)") +
+    ggtitle("Dispatch Stack") + coord_equal(ratio = 0.1) ->
+    p_full_truth
+
+ggsave('full.p_full_forecast.png', p_full_forecast)
+ggsave('full.p_full_truth.png', p_full_truth)
+
+
+
+
+ggplot(data=dat_full %>% filter(DATE > "2013-01-01" & DATE < "2013-09-01"), aes(x=DATE, y=production, group=group, color=group)) +
+    geom_line(alpha=0.95) +
+    xlab("Time") + ylab("Energy Produced (MW)") +
+    coord_equal(ratio = 0.02) ->
+    p_full_stack_tight
+
+ggsave('full.p_full_stack_tight.png', p_full_stack_tight)
+
 
 ""
