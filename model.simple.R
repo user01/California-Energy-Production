@@ -7,37 +7,109 @@ suppressPackageStartupMessages( {
   library(readr)
   library(stringr)
   library(randomForest)
+  library(geosphere)
 })
 
 generator_data_daily <- read_rds(file.path("rds", "generator_data_daily.rds"))
-generator_data_daily %>% glimpse
+# generator_data_daily %>% glimpse
+
+# Source: http://stackoverflow.com/a/39894310/2601448
+getSeason <- function(input.date){
+  numeric.date <- 100*month(input.date)+day(input.date)
+  ## input Seasons upper limits in the form MMDD in the "break =" option:
+  cuts <- base::cut(numeric.date, breaks = c(0,319,0620,0921,1220,1231))
+  # rename the resulting groups (could've been done within cut(...levels=) if "Winter" wasn't double
+  levels(cuts) <- c("Winter","Spring","Summer","Fall","Winter")
+  return(cuts)
+}
+
+moving_avg <- function(x,n=5){
+  stats::filter(x,rep(1/n,n), sides=1)
+}
+
 
 # hidden markov chain
 generator_data_daily %>%
   filter(ENERGY_SOURCE == "NG") %>%
   group_by(PLANT_CODE, DATE) %>%
-  mutate(ACTIVE = OP_TIME > 0.5) ->
+  mutate(
+    OP_TIME = ifelse(is.na(OP_TIME), 0 , OP_TIME),
+    ACTIVE = OP_TIME > 0.5
+  ) %>%
+  ungroup() %>%
+  mutate(
+    WEEKDAY = as.factor(wday(DATE, label = TRUE)),
+    WEEKEND = WEEKDAY == "Sat" | WEEKDAY == "Sun",
+    SEASON = getSeason(DATE),
+    ACTIVE = as.factor(ACTIVE)
+  ) %>%
+  na.omit() %>%
+  arrange(DATE) ->
   generators_clean
 
 # generators_clean %>%
-#   # select(DATE, PLANT_CODE, FACILITY_NAME, ACTIVE, GRIDVOLTAGE, TEMP_F_MAX, TEMP_F_MIN, TEMP_F_MEAN) %>%
-#   glimpse
-
-# generators_clean %>%
-#   get("ACTIVE", .) %>%
-#   unlist() %>%
-#   sum(na.rm=T) %>%
 #   glimpse
 
 generators_clean %>%
-  filter(PLANT_CODE == 228) %>%
-  mutate(ACTIVE = as.factor(ACTIVE)) %>%
-  ungroup() ->
+  distinct(PLANT_CODE, .keep_all = T) ->
+  plant_data
+
+plant_data %>%
+  get('PLANT_CODE', .) %>%
+  map(function(plant_code){
+
+    plant_data %>%
+      filter(PLANT_CODE == plant_code) %>%
+      select(LONGITUDE, LATITUDE) ->
+      plant_location
+
+    plant_data %>%
+      filter(PLANT_CODE != plant_code) %>%
+      select(LONGITUDE, LATITUDE) ->
+      plant_other_location
+
+    distm(plant_location,
+          plant_other_location,
+          fun = distCosine) %>%
+      c() ->
+      plant_other_distances
+
+
+    plant_data %>%
+      filter(PLANT_CODE != plant_code) %>%
+      mutate(distance = plant_other_distances) %>%
+      select(PLANT_CODE, distance) %>%
+      head(3) ->
+      plant_other_location_and_distances
+
+    generators_clean %>%
+      left_join(plant_other_location_and_distances, by="PLANT_CODE") %>%
+      filter(!is.na(distance)) %>%
+      group_by(DATE) %>%
+      summarise(
+        PLANT_CODE = plant_code,
+        GRIDVOLTAGE_NEIGHBORS = mean(GRIDVOLTAGE),
+        OP_TIME_NEIGHBORS = mean(OP_TIME)
+      ) ->
+      neighbor_data
+
+    neighbor_data
+  }) %>%
+  reduce(rbind) ->
+  neighbor_data
+
+generators_clean %>%
+  left_join(neighbor_data, by=c("PLANT_CODE", "DATE")) ->
+  generators_neighbor
+
+generators_neighbor %>%
+  glimpse
+
+generators_neighbor %>%
+  filter(PLANT_CODE == 228) ->
   costa
 
-
 # Note, 60k / 222k are true. Uneven, but not outrageously so
-
 
 if_else_ <- function(.data, .truth, .lhs, .rhs) {
   if (.truth) {
@@ -138,34 +210,21 @@ k_fold_prob <- function(data, current_formula, k = 10, resample = TRUE) {
 # res <- randomForest(ACTIVE ~ GRIDVOLTAGE + OP_TIME, data = costa, importance=TRUE, ntree=200)
 # varImpPlot(res)
 
-# Source: http://stackoverflow.com/a/39894310/2601448
-getSeason <- function(input.date){
-  numeric.date <- 100*month(input.date)+day(input.date)
-  ## input Seasons upper limits in the form MMDD in the "break =" option:
-  cuts <- base::cut(numeric.date, breaks = c(0,319,0620,0921,1220,1231))
-  # rename the resulting groups (could've been done within cut(...levels=) if "Winter" wasn't double
-  levels(cuts) <- c("Winter","Spring","Summer","Fall","Winter")
-  return(cuts)
-}
 
-moving_avg <- function(x,n=5){
-  stats::filter(x,rep(1/n,n), sides=1)
-}
+# costa %>%
+#   # head(50) %>%
+#   mutate(
+#     OP_TIME_LAG = lag(OP_TIME, 1),
+#     OP_TIME_MA = moving_avg(OP_TIME),
+#     wday = as.factor(wday(DATE, label = TRUE)),
+#     wend = wday == "Sat" | wday == "Sun",
+#     season = getSeason(DATE)
+#   ) %>%
+#   na.omit() ->
+#   costa_featured
 
-costa %>%
-  # head(50) %>%
-  mutate(
-    OP_TIME_LAG = lag(OP_TIME, 1),
-    OP_TIME_MA = moving_avg(OP_TIME),
-    wday = as.factor(wday(DATE, label = TRUE)),
-    wend = wday == "Sat" | wday == "Sun",
-    season = getSeason(DATE)
-  ) %>%
-  na.omit() ->
-  costa_featured
-
-costa_featured %>%
-  glimpse
+# costa_featured %>%
+#   glimpse
 
 
 # barplot(prop.table(table(costa_featured$ACTIVE)))
@@ -183,22 +242,21 @@ generate_df_combos <- function(df) {
     combo_chr
 }
 
-costa_featured %>%
-  generate_df_combos
-
-set.seed(0451)
-k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN)
-set.seed(0451)
-k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG)
-set.seed(0451)
-k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG + OP_TIME_MA)
+# costa_featured %>%
+#   generate_df_combos
+#
 # set.seed(0451)
-# k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG + OP_TIME_MA + OP_TIME_MA2)
+# k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN)
+# set.seed(0451)
+# k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG)
+# set.seed(0451)
+# k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG + OP_TIME_MA)
+# # set.seed(0451)
+# # k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG + OP_TIME_MA + OP_TIME_MA2)
 
 
 
 full_test <- function(df) {
-
   df %>%
     generate_df_combos %>%
     map(function(combo) {
@@ -223,7 +281,34 @@ full_test <- function(df) {
     head(3)
 }
 
-full_test(costa_featured) -> costa_results
+system.time({
+  full_test(costa_featured) -> costa_results
+})
 
-costa_results %>%
-  arrange(BalancedErrorRate)
+# costa_results %>%
+#   arrange(BalancedErrorRate)
+
+# generators_clean %>%
+#   glimpse
+
+generators_clean %>%
+  distinct(PLANT_CODE) %>%
+  unlist %>%
+  unname %>%
+  map(function(plant_code) {
+    generators_clean %>%
+      filter(PLANT_CODE == plant_code) %>%
+      mutate(
+        OP_TIME_LAG = lag(OP_TIME, 1),
+        OP_TIME_MA = moving_avg(OP_TIME)
+      ) %>%
+      na.omit() ->
+      df
+    try({
+      full_test(df) %>%
+        cbind(data_frame(PLANT_CODE = plant_code,
+          FACILITY_NAME = df$FACILITY_NAME %>% first), .)
+    })
+  }) -> res
+
+""
