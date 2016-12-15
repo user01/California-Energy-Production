@@ -201,7 +201,7 @@ k_fold_prob <- function(data, current_formula, k = 10, resample = TRUE) {
       temp_test <- data %>% filter(folds == fold_number)
 
       current_formula %>%
-        randomForest(data = temp_train, importance=TRUE, ntree=128) %>%
+        randomForest(data = temp_train, importance=TRUE, ntree=64) %>%
         predict(temp_test) %>%
         factor_scores(temp_test$ACTIVE, unique(data$ACTIVE)) # TODO: remove this hard coded factor
     }) %>%
@@ -241,7 +241,8 @@ generate_df_combos <- function(df) {
     stop("Too many names")
   }
   n %>%
-    combo_chr
+    combo_chr %>%
+    discard(~ length(.) < 2 | length(.) > 5)
 }
 
 # costa_featured %>%
@@ -353,23 +354,60 @@ process_plant <- function(plant_code) {
 #
 # })
 
-generators_clean %>%
-  distinct(PLANT_CODE) %>%
-  slice(2:3) %>%
-  unlist %>%
-  unname -> plant_codes
+# generators_neighbor %>%
+#   distinct(PLANT_CODE) %>%
+#   glimpse
+#
+# generators_neighbor %>%
+#   distinct(PLANT_CODE) %>%
+#   slice(1:20) %>%
+#   unlist %>%
+#   unname -> plant_codes
+#
+# (foreach(i = 1:length(plant_codes) ) %dopar% {
+#   plant_code <- plant_codes[[i]]
+#   set.seed(i + 500)
+#   try({
+#     process_plant(plant_code)
+#   })
+#   }) -> res_1_20
 
 
-(foreach(i = 1:length(plant_codes) ) %dopar% {
-  plant_code <- plant_codes[[i]]
-  set.seed(i + 500)
-  process_plant(plant_code)
-  }) %>%
-  reduce(rbind) -> res2
+run_set <- function(s) {
+  generators_neighbor %>%
+    distinct(PLANT_CODE) %>%
+    slice(s) %>%
+    unlist %>%
+    unname -> plant_codes
+
+  (foreach(i = 1:length(plant_codes) ) %dopar% {
+    plant_code <- plant_codes[[i]]
+    set.seed(i + 500)
+    try({
+      process_plant(plant_code)
+    })
+  }) -> res
+
+  res
+}
+
+run_set(1:20) -> res_1_20
+run_set(21:40) -> res_21_80
+run_set(41:60) -> res_41_60
+run_set(61:80) -> res_61_80
+run_set(81:100) -> res_81_100
+run_set(101:112) -> res_101_112
 
 
-res2 %>%
-  glimpse
+list(res_1_20, res_21_80, res_41_60, res_61_80, res_81_100, res_101_112) %>%
+  reduce(append) %>%
+  discard(~ typeof(.) != 'list') %>%
+  reduce(rbind) %>%
+  filter(TPR > 0.001) ->
+  res_all
+
+
+res_all %>% write_csv('temp.results.csv')
 
 # res
 # res %>%
