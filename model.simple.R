@@ -3,9 +3,11 @@
 suppressPackageStartupMessages( {
   library(purrr)
   library(dplyr)
+  library(multidplyr)
   library(lubridate)
   library(readr)
   library(stringr)
+  require(doParallel)
   library(randomForest)
   library(geosphere)
 })
@@ -102,12 +104,12 @@ generators_clean %>%
   left_join(neighbor_data, by=c("PLANT_CODE", "DATE")) ->
   generators_neighbor
 
-generators_neighbor %>%
-  glimpse
+# generators_neighbor %>%
+#   glimpse
 
-generators_neighbor %>%
-  filter(PLANT_CODE == 228) ->
-  costa
+# generators_neighbor %>%
+#   filter(PLANT_CODE == 228) ->
+#   costa
 
 # Note, 60k / 222k are true. Uneven, but not outrageously so
 
@@ -281,34 +283,52 @@ full_test <- function(df) {
     head(3)
 }
 
-system.time({
-  full_test(costa_featured) -> costa_results
-})
 
 # costa_results %>%
 #   arrange(BalancedErrorRate)
 
 # generators_clean %>%
 #   glimpse
+#
+# cluster <- create_cluster(detectCores() - 1)
+# set_default_cluster(cluster)
+#
+# generators_clean %>%
+#   distinct(PLANT_CODE) %>%
+#   partition(PLANT_CODE) %>%
+#   do(fit = fitdist(.$PLANT_CODE)))
 
-generators_clean %>%
-  distinct(PLANT_CODE) %>%
-  unlist %>%
-  unname %>%
-  map(function(plant_code) {
-    generators_clean %>%
-      filter(PLANT_CODE == plant_code) %>%
-      mutate(
-        OP_TIME_LAG = lag(OP_TIME, 1),
-        OP_TIME_MA = moving_avg(OP_TIME)
-      ) %>%
-      na.omit() ->
-      df
-    try({
-      full_test(df) %>%
-        cbind(data_frame(PLANT_CODE = plant_code,
-          FACILITY_NAME = df$FACILITY_NAME %>% first), .)
-    })
-  }) -> res
+
+system.time({
+
+  generators_clean %>%
+    distinct(PLANT_CODE) %>%
+    slice(1:3) %>%
+    unlist %>%
+    unname %>%
+    map(function(plant_code) {
+      generators_clean %>%
+        filter(PLANT_CODE == plant_code) %>%
+        mutate(
+          OP_TIME_LAG = lag(OP_TIME, 1),
+          OP_TIME_MA = moving_avg(OP_TIME)
+        ) %>%
+        na.omit() ->
+        df
+      try({
+        full_test(df) %>%
+          cbind(data_frame(PLANT_CODE = plant_code,
+            FACILITY_NAME = df$FACILITY_NAME %>% first), .)
+      })
+    }) %>%
+    reduce(rbind) -> res
+
+})
+
+res
+
+
+res %>%
+  glimpse
 
 ""
