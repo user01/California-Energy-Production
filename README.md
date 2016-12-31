@@ -70,3 +70,25 @@ For every plant, the code trains a random forest model. This was done by best su
 
 ![Forecast Results](readme_assets/forecast.results.png "Forecast Results")
 ![Forecast Results Zoom](readme_assets/forecast.results.zoom.png "Forecast Results Zoom")
+
+## Results and Analysis
+
+The models performed reasonably, owing largely to the high degree of autocorrelation with a power plant's operation (ie, a plant tends to remain in the previous state).
+
+This model breaks down especially at seasonal intervals (winter), indicated by the recurring spikes of residuals.
+
+![Residuals](readme_assets/residuals.png "Residuals")
+
+
+## Future Improvements
+
+* Undersampling and Oversampling to improve Random Forest Models suffering from class imbalance
+* Correcting for seasonal errors.
+* Expand data to include other fuel sources
+  * Coal, Oil, Solar, Wind, Etc
+* Improve Weather Details
+  * Conditions, Humidity, Wind, Etc
+* Additional data sources
+  * Economic, News, Fuel Availability
+* Reduce Computational Complexity
+  * Hand selecting features combined with best subset were expensive
