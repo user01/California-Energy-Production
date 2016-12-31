@@ -1,4 +1,7 @@
 
+plots/full.plot_rf_inactive.png: plots/state.plants.png
+	Rscript model.simple.R
+
 plots/state.plants.png: rds/generator_data_daily.rds
 	Rscript plot.basic.R
 
@@ -21,3 +24,4 @@ misc/weather_stations.txt:
 clean:
 	rm rds/*.rds
 	rm plots/*.png
+	rm *.html

@@ -112,33 +112,11 @@ plot_state <- ggplot()
 plot_state <- plot_state + geom_polygon( data=states, aes(x=long, y=lat, group = group),colour="white", fill="grey10" )
 plot_state <- plot_state + geom_point( data=plants, aes(x=LONGITUDE, y=LATITUDE, size=`GRID_VOLTAGE_(KV)`, color=ENERGY_SOURCE)) + scale_size(name="Grid Voltage (KV)")
 ggsave(file.path("plots", "state.plants.png"), plot_state)
-# p_state
 
 
 
-# operating_records <- read_rds(file.path("rds", "operating_records.rds"))
-# operating_records %>% glimpse
-# operating_records %>%
-#   distinct(PLANT_CODE) %>%
-#   glimpse
-
-
-
-
-#
-# generation_data <- read_rds(file.path("rds", "generation_data.rds"))
-# generation_data %>% glimpse
-#
-# generation_data %>%
-#   distinct(PLANT_CODE, .keep_all = T) %>%
-#   select(ENERGY_SOURCE) %>%
-#   unlist() %>%
-#   unique() %>%
-#   glimpse
 
 generator_data_daily <- read_rds(file.path("rds", "generator_data_daily.rds"))
-# generator_data_daily %>% glimpse
-
 
 generator_data_daily %>%
   filter(ENERGY_SOURCE == "NG") %>%
@@ -158,18 +136,31 @@ generator_data_daily %>%
   sg_axis_x(tick_interval=10, tick_units="month") %>%
   sg_legend(TRUE, "Ticker: ") -> plot_steamgraph
 
-htmlwidgets::saveWidget(plot_steamgraph, "all_steamgraph.html", selfcontained = TRUE)
+htmlwidgets::saveWidget(plot_steamgraph, "steamgraph_all.html", selfcontained = TRUE)
 
 
-#
-# generator_data_daily %>%
-#   distinct(FACILITY_NAME, .keep_all = T) %>%
-#   glimpse
-#
-# generator_data_daily %>%
-#   get("ENERGY_SOURCE", .) %>%
-#   as.character %>%
-#   unique %>%
-#   glimpse
-#
-#
+moving_avg <- function(x,n=5){
+  stats::filter(x,rep(1/n,n), sides=1)
+}
+
+generator_data_daily %>%
+  filter(ENERGY_SOURCE == "NG") %>%
+  group_by(PLANT_CODE, DATE) %>%
+  summarise(
+    FACILITY_NAME = FACILITY_NAME %>% first,
+    OP_TIME = mean(OP_TIME, na.rm = T),
+    GRIDVOLTAGE = mean(GRIDVOLTAGE, na.rm = T)
+  ) %>%
+  mutate(
+    date=as.Date(DATE, format="%m/%d/%y"),
+    contribution = OP_TIME * GRIDVOLTAGE
+    ) %>%
+  ungroup() -> t
+
+t %>%
+  filter(PLANT_CODE %% 5 == 0 & PLANT_CODE %% 3 == 0 ) %>%
+  streamgraph(key="FACILITY_NAME", value="contribution", "date") %>%
+  sg_axis_x(tick_interval=10, tick_units="month") %>%
+  sg_legend(TRUE, "Ticker: ") -> plot_steamgraph_sml
+
+htmlwidgets::saveWidget(plot_steamgraph_sml, "steamgraph_sub.html", selfcontained = TRUE)

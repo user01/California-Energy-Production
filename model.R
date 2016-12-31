@@ -30,6 +30,9 @@ moving_avg <- function(x,n=5){
   stats::filter(x,rep(1/n,n), sides=1)
 }
 
+ggsave_local <- function(filename, plot) {
+  ggsave_local(file.path("plots", filename), plot)
+}
 
 # hidden markov chain
 generator_data_daily %>%
@@ -105,14 +108,7 @@ generators_clean %>%
   left_join(neighbor_data, by=c("PLANT_CODE", "DATE")) ->
   generators_neighbor
 
-# generators_neighbor %>%
-#   glimpse
-
-# generators_neighbor %>%
-#   filter(PLANT_CODE == 228) ->
-#   costa
-
-# Note, 60k / 222k are true. Uneven, but not outrageously so
+# Note, 60k / 222k are active. Uneven, but not outrageously so
 
 if_else_ <- function(.data, .truth, .lhs, .rhs) {
   if (.truth) {
@@ -210,27 +206,6 @@ k_fold_prob <- function(data, current_formula, k = 10, resample = TRUE) {
     dmap(sum)
 }
 
-# res <- randomForest(ACTIVE ~ GRIDVOLTAGE + OP_TIME, data = costa, importance=TRUE, ntree=200)
-# varImpPlot(res)
-
-
-# costa %>%
-#   # head(50) %>%
-#   mutate(
-#     OP_TIME_LAG = lag(OP_TIME, 1),
-#     OP_TIME_MA = moving_avg(OP_TIME),
-#     wday = as.factor(wday(DATE, label = TRUE)),
-#     wend = wday == "Sat" | wday == "Sun",
-#     season = getSeason(DATE)
-#   ) %>%
-#   na.omit() ->
-#   costa_featured
-
-# costa_featured %>%
-#   glimpse
-
-
-# barplot(prop.table(table(costa_featured$ACTIVE)))
 
 generate_df_combos <- function(df) {
   df %>%
@@ -245,19 +220,6 @@ generate_df_combos <- function(df) {
     combo_chr %>%
     discard(~ length(.) < 2 | length(.) > 5)
 }
-
-# costa_featured %>%
-#   generate_df_combos
-#
-# set.seed(0451)
-# k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN)
-# set.seed(0451)
-# k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG)
-# set.seed(0451)
-# k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG + OP_TIME_MA)
-# # set.seed(0451)
-# # k_fold_prob(costa_featured, ACTIVE ~ GRIDVOLTAGE + TEMP_F_MEAN + wday + wend + season + OP_TIME_LAG + OP_TIME_MA + OP_TIME_MA2)
-
 
 
 full_test <- function(df) {
@@ -289,20 +251,6 @@ full_test <- function(df) {
     head(3)
 }
 
-
-# costa_results %>%
-#   arrange(BalancedErrorRate)
-
-# generators_clean %>%
-#   glimpse
-#
-# cluster <- create_cluster(detectCores() - 1)
-# set_default_cluster(cluster)
-#
-# generators_clean %>%
-#   distinct(PLANT_CODE) %>%
-#   partition(PLANT_CODE) %>%
-#   do(fit = fitdist(.$PLANT_CODE)))
 
 registerDoParallel(cores = detectCores() - 1)
 
@@ -415,7 +363,7 @@ res_all %>%
   distinct(PLANT_CODE, .keep_all=T) ->
   res_winners
 
-res_winners %>% glimpse
+# res_winners %>% glimpse
 res_winners %>%
   arrange(BalancedErrorRate) %>%
   select(FACILITY_NAME, Formula, AccuracyACTIVE, AccuracyINACTIVE, BalancedErrorRate) %>%
@@ -457,7 +405,7 @@ valid_plants %>%
     raw_data %>%
       mutate(
         ACTIVE_FORECAST = forecasts,
-        production = ifelse(ACTIVE_FORECAST == 'TRUE', OP_TIME * GRIDVOLTAGE, 0),
+        production = ifelse(ACTIVE_FORECAST == 'TRUE', GRIDVOLTAGE, 0),
         group="Forecast"
       ) %>%
       select(DATE, production, group)
@@ -473,13 +421,13 @@ valid_plants %>%
   dat_forecast
 
 
-dat_forecast %>%
-  arrange(DATE) %>%
-  tail(5) %>%
-  glimpse
+# dat_forecast %>%
+#   arrange(DATE) %>%
+#   tail(5) %>%
+#   glimpse
 
 
-generators_clean %>% glimpse
+# generators_clean %>% glimpse
 
 generators_clean %>%
   filter(PLANT_CODE %in% valid_plants) %>%
@@ -496,47 +444,51 @@ generators_clean %>%
   ungroup() ->
   dat
 
-dat %>% glimpse
+# dat %>% glimpse
 
 dat_forecast %>%
   left_join(dat, by="DATE") %>%
   mutate(residual = (production.x - production.y)^2 ) ->
   dat_residuals
 
-dat_residuals %>% glimpse
+# dat_residuals %>% glimpse
 
-dat_residuals %>%
-  filter(residual < 1) %>%
-  glimpse
+# dat_residuals %>%
+#   filter(residual < 1) %>%
+#   glimpse
 
-652/1457
+# 652/1457
+
+# dat_residuals$residual %>% mean
+# dat_residuals$residual %>% discard(~ . < 1) %>% glimpse
 
 qplot(dat_residuals$residual, geom="histogram") + coord_equal(ratio = 200) -> plot_residuals_hist
-ggsave('residuals.hist.png', plot_residuals_hist)
+ggsave_local('residuals.hist.png', plot_residuals_hist)
 
 
 ggplot(data=dat_residuals, aes(x=DATE, y=residual)) +
     geom_point() +
-    xlab("Time") + ylab("Residual Energy Produced (MW)") +
-    coord_equal(ratio = 0.001) ->
+    xlab("Time") + ylab("Residual Error") +
+    coord_equal(ratio = 0.0002) ->
     p_residuals
 
-ggsave('stack.residuals.png', p_residuals)
+ggsave_local('stack.residuals.png', p_residuals)
 
 dat_full <- rbind(dat,dat_forecast)
 
-dat_full %>% glimpse
+# dat_full %>% glimpse
 
-ggplot(data=dat_full, aes(x=DATE, y=production, group=group, color=group)) +
+ggplot(data=dat_full %>% filter(DATE < "2014-01-01") , aes(x=DATE, y=production, group=group, color=group)) +
     geom_line(alpha=0.95) +
     # scale_alpha_manual(values = c(0.1, 0.1, 1, 1)) +
     # geom_point() +
     expand_limits(y=0) +
     xlab("Time") + ylab("Energy Produced (MW)") +
-    ggtitle("Dispatch Stack") + coord_equal(ratio = 0.1) ->
+    ggtitle("Dispatch Stack") + coord_equal(ratio = 0.06) ->
     p_full_stack
 
-ggsave('full.stack.png', p_full_stack)
+# p_full_stack
+ggsave_local('full.stack.png', p_full_stack)
 
 
 ggplot(data=dat_full %>% filter(group == "Forecast"), aes(x=DATE, y=production, group=group, color=group)) +
@@ -557,8 +509,8 @@ ggplot(data=dat_full %>% filter(group == "Truth" & DATE < "2014-01-01"), aes(x=D
     ggtitle("Dispatch Stack") + coord_equal(ratio = 0.1) ->
     p_full_truth
 
-ggsave('full.p_full_forecast.png', p_full_forecast)
-ggsave('full.p_full_truth.png', p_full_truth)
+ggsave_local('full.p_full_forecast.png', p_full_forecast)
+ggsave_local('full.p_full_truth.png', p_full_truth)
 
 
 
@@ -569,7 +521,46 @@ ggplot(data=dat_full %>% filter(DATE > "2013-01-01" & DATE < "2013-09-01"), aes(
     coord_equal(ratio = 0.02) ->
     p_full_stack_tight
 
-ggsave('full.p_full_stack_tight.png', p_full_stack_tight)
+ggsave_local('full.p_full_stack_tight.png', p_full_stack_tight)
 
 
-""
+
+
+valid_plants %>%
+  map(function(plant_code){
+    res_winners %>%
+      filter(PLANT_CODE == plant_code) %>%
+      get("Formula", .) %>%
+      first %>%
+      as.character %>%
+      as.formula ->
+      forml
+
+    generators_neighbor %>%
+      filter(PLANT_CODE == plant_code) %>%
+      mutate(
+        OP_TIME_LAG = lag(OP_TIME, 1),
+        OP_TIME_MA = moving_avg(OP_TIME)
+      ) %>%
+      na.omit() ->
+      raw_data
+    fit <- randomForest(forml, data = raw_data, importance=TRUE, ntree=64)
+    list(
+      plant_code,
+      fit)
+  }) -> rf_res
+
+
+
+
+
+res_winners %>% arrange(-AccuracyACTIVE) -> temp
+ggplot(data=temp, aes(x=FACILITY_NAME, y=AccuracyACTIVE)) +
+    geom_bar(stat="identity", position=position_dodge(), fill="red") ->
+    plot_rf_active
+ggplot(data=temp, aes(x=FACILITY_NAME, y=AccuracyINACTIVE)) +
+    geom_bar(stat="identity", position=position_dodge(), fill="blue") ->
+    plot_rf_inactive
+
+ggsave_local('full.plot_rf_active.png', plot_rf_active)
+ggsave_local('full.plot_rf_inactive.png', plot_rf_inactive)
