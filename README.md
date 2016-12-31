@@ -35,7 +35,7 @@ From 2010 - 2014, for every Power Station, for every Day
 * Production Capacity
 * Date
 
-![Processing Strategy](readme_assets/strategy.svg "Processing Strategy")
+![Processing Strategy](readme_assets/strategy.png "Processing Strategy")
 
 ### Feature Engineering
 
